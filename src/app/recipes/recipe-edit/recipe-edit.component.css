@@ -1,0 +1,3 @@
+.ng-invalid:not(form):not(div).ng-touched {
+  border: 1px solid red;
+}
