@@ -7,8 +7,8 @@
     "sourceMap": true,
     "declaration": false,
     "moduleResolution": "node",
-    "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "module": "es2020",
     "target": "es5",
     "typeRoots": ["node_modules/@types"],
     "lib": ["es2017", "dom"]
