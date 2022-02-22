@@ -6,10 +6,13 @@ import {
   FormGroup,
   Validators,
 } from "@angular/forms";
-import { ActivatedRoute, Params, Router } from "@angular/router";
-import { Subscription } from "rxjs";
+import { ActivatedRoute, Router } from "@angular/router";
+import { Store } from "@ngrx/store";
+import { of, Subject } from "rxjs";
+import { map, switchMap, takeUntil, tap } from "rxjs/operators";
+import { AppState } from "src/app/store/app.reducer";
 import { Recipe } from "../recipe.model";
-import { RecipeService } from "../recipe.service";
+import { RecipesAdd, RecipesUpdate } from "../store/recipe.actions";
 
 @Component({
   selector: "app-recipe-edit",
@@ -20,25 +23,43 @@ export class RecipeEditComponent implements OnInit, OnDestroy {
   id: number;
   editMode = false;
   formRecipe: FormGroup;
-  paramsSubscription: Subscription;
+
+  private $destroy: Subject<boolean> = new Subject<boolean>();
+  private recipe: Recipe;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private formBuilder: FormBuilder,
-    private recipeService: RecipeService
+    private store: Store<AppState>
   ) {}
 
   ngOnInit(): void {
-    this.route.params.subscribe((params: Params) => {
-      this.id = +params.id;
-      this.editMode = !!this.id;
-      this.initForm();
-    });
+    this.route.params
+      .pipe(
+        takeUntil(this.$destroy),
+        tap(({ id }) => {
+          this.id = +id;
+          this.editMode = !!this.id;
+        }),
+        switchMap(() =>
+          this.editMode
+            ? this.store.select("recipes").pipe(
+                takeUntil(this.$destroy),
+                map(({ recipes }) => recipes.find(({ id }) => id === this.id)),
+                tap((recipe) => (this.recipe = recipe))
+              )
+            : of({})
+        )
+      )
+      .subscribe(() => {
+        this.initForm();
+      });
   }
 
   ngOnDestroy() {
-    if (this.paramsSubscription) this.paramsSubscription.unsubscribe();
+    this.$destroy.next();
+    this.$destroy.complete();
   }
 
   get name() {
@@ -82,8 +103,7 @@ export class RecipeEditComponent implements OnInit, OnDestroy {
         ingredients: new FormArray([]),
       };
 
-    const { name, imagePath, description, ingredients } =
-      this.recipeService.getRecipe(this.id);
+    const { name, imagePath, description, ingredients } = this.recipe;
 
     const formArrayIngredients = new FormArray(
       ingredients.map((ingredient) =>
@@ -141,8 +161,8 @@ export class RecipeEditComponent implements OnInit, OnDestroy {
       ingredients
     );
 
-    !this.editMode
-      ? this.recipeService.addRecipe(recipe)
-      : this.recipeService.updateRecipe(recipe);
+    const eventDispatch = !this.editMode ? RecipesAdd : RecipesUpdate;
+
+    this.store.dispatch(eventDispatch({ recipe }));
   }
 }

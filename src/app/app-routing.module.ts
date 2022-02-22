@@ -5,7 +5,7 @@ import { PreloadAllModules, RouterModule, Routes } from "@angular/router";
 export const routes: Routes = [
   {
     path: "",
-    redirectTo: "/auth",
+    redirectTo: "/recipes",
     pathMatch: "full",
   },
   {
@@ -29,7 +29,10 @@ export const routes: Routes = [
 
 @NgModule({
   imports: [
-    RouterModule.forRoot(routes, { preloadingStrategy: PreloadAllModules }),
+    RouterModule.forRoot(routes, {
+      preloadingStrategy: PreloadAllModules,
+      initialNavigation: "enabled",
+    }),
   ],
   exports: [RouterModule],
 })

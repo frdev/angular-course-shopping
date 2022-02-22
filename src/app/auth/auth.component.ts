@@ -7,11 +7,13 @@ import {
 } from "@angular/core";
 import { NgForm } from "@angular/forms";
 import { Router } from "@angular/router";
-import { Observable, Subject, Subscription } from "rxjs";
-import { AuthResponse, AuthService } from "./auth.service";
+import { Subject } from "rxjs";
 import { AlertComponent } from "../shared/alert/alert.component";
 import { PlaceholderDirective } from "../shared/placeholder.directive";
 import { take, takeUntil } from "rxjs/operators";
+import { Store } from "@ngrx/store";
+import { AppState } from "../store/app.reducer";
+import { ClearError, SignInStart, SignUpStart } from "./store/auth.actions";
 
 @Component({
   selector: "app-auth",
@@ -28,12 +30,24 @@ export class AuthComponent implements OnInit, OnDestroy {
   $destroy: Subject<boolean> = new Subject<boolean>();
 
   constructor(
-    private authService: AuthService,
     private router: Router,
-    private componentFactoryResolver: ComponentFactoryResolver
+    private componentFactoryResolver: ComponentFactoryResolver,
+    private store: Store<AppState>
   ) {}
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.store
+      .select("auth")
+      .pipe(takeUntil(this.$destroy))
+      .subscribe(({ user, loading, error }) => {
+        this.isLoading = loading;
+        this.error = error;
+
+        if (!user || error) return;
+
+        this.router.navigate(["/recipes"]);
+      });
+  }
 
   ngOnDestroy(): void {
     this.$destroy.next();
@@ -50,27 +64,15 @@ export class AuthComponent implements OnInit, OnDestroy {
     this.isLoading = true;
     this.error = null;
 
-    let authObservable: Observable<AuthResponse> = !this.isLoginMode
-      ? this.authService.signUp(form.value)
-      : this.authService.signIn(form.value);
+    const eventDispatch = this.isLoginMode ? SignInStart : SignUpStart;
 
-    authObservable.subscribe(
-      () => {
-        this.isLoading = false;
-        this.router.navigate(["/recipes"]);
-      },
-      (error) => {
-        this.error = error;
-        this.showErrorAlert(error);
-        this.isLoading = false;
-      }
-    );
+    this.store.dispatch(eventDispatch({ credentials: form.value }));
 
     form.reset();
   }
 
   onHandleError() {
-    this.error = null;
+    this.store.dispatch(ClearError());
   }
 
   private showErrorAlert(message: string) {
